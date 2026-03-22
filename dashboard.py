@@ -107,6 +107,13 @@ h3 { color:#E6EDF3 !important; font-size:1.05rem !important; margin-bottom:4px !
 
 /* ── Divider ── */
 hr { border-color:#21262D !important; }
+
+/* ── Ticker input field ── */
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] .stTextInput input {
+    color: #0F1117 !important;
+    background-color: #E6EDF3 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
