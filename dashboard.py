@@ -22,6 +22,7 @@ from app.prediction import predict_price, trend_direction
 from app.insights   import generate_insight
 from app.plot       import generate_chart
 from app.model      import lstm_predict
+from app.model_store import ModelStore
 from app.sentiment  import analyze_sentiment, fetch_headlines
 
 # ---------------------------------------------------------------------------
@@ -186,11 +187,12 @@ df = add_all_indicators(df)
 
 # Prediction
 prediction_method = "baseline"
+lstm_meta         = None
 with st.spinner("Running prediction …"):
     if use_lstm:
         try:
-            predicted = lstm_predict(df)
-            prediction_method = "LSTM"
+            predicted, lstm_meta = lstm_predict(df, ticker=ticker, period=period)
+            prediction_method = "LSTM (cached)" if not ModelStore.is_stale(ticker, period) else "LSTM (fresh)"
         except Exception:
             predicted = predict_price(df)
     else:
@@ -239,6 +241,36 @@ with c5:
     if sentiment:
         sent_icons = {"bullish": "🟢 Bullish", "bearish": "🔴 Bearish", "neutral": "🟡 Neutral"}
         st.metric("Sentiment", sent_icons.get(sentiment["label"], "—"), delta=f"{sentiment['headline_count']} headlines", delta_color="off")
+
+st.markdown("---")
+
+
+# ---------------------------------------------------------------------------
+# Row 1b — LSTM model metrics (only shown when LSTM was used)
+# ---------------------------------------------------------------------------
+if lstm_meta is not None:
+    with st.expander("🧠 LSTM Model Metrics", expanded=False):
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric("Test MAE", f"${lstm_meta.test_mae:.2f}", help="Mean absolute error on held-out test set (USD)")
+        with m2:
+            st.metric("Test RMSE", f"${lstm_meta.test_rmse:.2f}", help="Root mean squared error on held-out test set (USD)")
+        with m3:
+            dir_pct = f"{lstm_meta.directional_accuracy * 100:.1f}%"
+            st.metric("Directional Accuracy", dir_pct, help="% of days the model predicted the correct up/down direction")
+        with m4:
+            trained_str = lstm_meta.trained_at[:10]  # just the date
+            st.metric("Last Trained", trained_str)
+
+        st.markdown(
+            f"<div style='color:#8B949E;font-size:.8rem;margin-top:8px'>"
+            f"Train sequences: {lstm_meta.n_train} &nbsp;|&nbsp; "
+            f"Val sequences: {lstm_meta.n_val} &nbsp;|&nbsp; "
+            f"Test sequences: {lstm_meta.n_test} &nbsp;|&nbsp; "
+            f"Val loss: {lstm_meta.val_loss:.6f}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
 st.markdown("---")
 
