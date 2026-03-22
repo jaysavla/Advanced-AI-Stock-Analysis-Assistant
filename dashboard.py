@@ -390,12 +390,16 @@ if sentiment and sentiment.get("headlines"):
             results = [{"label": "POSITIVE", "score": 0.5}] * len(headlines)
 
         for headline, res in zip(headlines, results):
-            if res["label"] == "POSITIVE":
+            lbl = res["label"].lower()
+            if lbl == "positive":
                 css_cls = "headline-pos"
                 icon    = "🟢"
-            else:
+            elif lbl == "negative":
                 css_cls = "headline-neg"
                 icon    = "🔴"
+            else:
+                css_cls = "headline-neu"
+                icon    = "🟡"
 
             st.markdown(
                 f'<div class="headline-pill {css_cls}">{icon} {headline}</div>',

@@ -3,10 +3,14 @@ sentiment.py - News fetching + sentiment analysis layer.
 
 Pipeline:
   1. Fetch recent headlines via yfinance (no extra API key needed).
-  2. Score each headline with a DistilBERT SST-2 model from HuggingFace.
+  2. Score each headline with FinBERT (ProsusAI/finbert) — a BERT model
+     fine-tuned on financial text (earnings calls, analyst reports, news).
+     Unlike general-purpose SST-2 models, FinBERT understands domain-specific
+     language like "beats estimates", "margin compression", "rate hike".
   3. Aggregate into a single sentiment dict consumed by insights.py.
 
-The HuggingFace model (~67 MB) is downloaded once and cached by the
+FinBERT outputs three labels: positive / negative / neutral.
+The HuggingFace model (~438 MB) is downloaded once and cached by the
 `transformers` library in ~/.cache/huggingface on first run.
 """
 
@@ -23,7 +27,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Lazy-loaded singleton pipeline
 # ---------------------------------------------------------------------------
-_SENTIMENT_MODEL = "distilbert-base-uncased-finetuned-sst-2-english"
+_SENTIMENT_MODEL = "ProsusAI/finbert"
 _pipeline: Optional[object] = None
 
 
@@ -117,21 +121,27 @@ def analyze_sentiment(ticker: str) -> dict:
         logger.error("Sentiment pipeline failed: %s", exc)
         return neutral_result
 
+    # FinBERT labels: "positive", "negative", "neutral" (lowercase, 3-class)
     positive_count = 0
+    negative_count = 0
     score_sum      = 0.0
 
     for r in results:
-        if r["label"] == "POSITIVE":
+        lbl = r["label"].lower()
+        if lbl == "positive":
             positive_count += 1
-            score_sum      += r["score"]          # confidence that it's positive
+            score_sum      += r["score"]              # confidence of being positive
+        elif lbl == "negative":
+            negative_count += 1
+            score_sum      += 1.0 - r["score"]        # inverted: low score = bearish
         else:
-            score_sum      += (1.0 - r["score"])  # flip: how positive is a negative?
+            score_sum      += 0.5                     # neutral contributes 0.5
 
     avg_score = score_sum / len(results)
 
-    if avg_score >= 0.62:
+    if avg_score >= 0.60:
         label = "bullish"
-    elif avg_score <= 0.38:
+    elif avg_score <= 0.40:
         label = "bearish"
     else:
         label = "neutral"
@@ -141,6 +151,6 @@ def analyze_sentiment(ticker: str) -> dict:
         "score":          round(avg_score, 4),
         "headline_count": len(headlines),
         "positive":       positive_count,
-        "negative":       len(results) - positive_count,
+        "negative":       negative_count,
         "headlines":      headlines,
     }
