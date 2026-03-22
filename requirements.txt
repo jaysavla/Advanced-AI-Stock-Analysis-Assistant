@@ -1,0 +1,21 @@
+# API
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.7.0
+
+# UI
+streamlit>=1.35.0
+
+# Data
+yfinance>=0.2.40
+pandas>=2.2.0
+
+# Visualization
+matplotlib>=3.8.0
+
+# ML — LSTM prediction
+torch>=2.2.0
+scikit-learn>=1.4.0
+
+# NLP — sentiment analysis
+transformers>=4.40.0
